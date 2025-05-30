@@ -1288,12 +1288,18 @@ def get_table(data_df: pd.DataFrame, uncertainty_df: pd.DataFrame = None,
             val = data_df.iloc[i, j]
 
             # Format main value
-            cell_str = f"{val:.{digits}f}"
+            if pd.isna(val):
+                cell_str = "-" # Placeholder for NaN values
+            else:
+                cell_str = f"{val:.{digits}f}"
 
             # Add uncertainty if provided
             if uncertainty_df is not None:
                 unc = uncertainty_df.iloc[i, j]
-                cell_str += f" $\\pm$ {unc:.{digits}f}"
+                if pd.isna(unc):
+                    cell_str += " $\\pm$ -" # Placeholder for NaN uncertainty
+                else:
+                    cell_str += f" $\\pm$ {unc:.{digits}f}"
 
             # Bold if it's the minimum in the row
             if bold and j == min_val_idx:
@@ -1383,9 +1389,16 @@ def get_table_occurence(data_df: pd.DataFrame, digits: int = 2) -> str:
 
         for col_name in col_names:
             val = row_series[col_name]
-            cell_str = f"{pd.to_numeric(val, errors='ignore'):.{digits}f}" # Format to numeric then string
+            if pd.isna(val):
+                cell_str = "-" # Placeholder for NaN values
+            else:
+                # Ensure value is numeric before formatting, handle non-numeric gracefully if they slip through
+                try:
+                    cell_str = f"{float(val):.{digits}f}"
+                except ValueError:
+                    cell_str = str(val) # Keep as string if not convertible to float
 
-            if col_name == max_val_col_name: # max_val_col_name is already a column name
+            if col_name == max_val_col_name and not pd.isna(val): # Only bold if not NaN
                 cell_str = f"\\textbf{{{cell_str}}}"
             row_values_str.append(cell_str)
 
@@ -1433,23 +1446,24 @@ if __name__ == '__main__':
     # Test get_table_occurence
     print("\nTesting get_table_occurence()...")
     arrays_gto = [
-        np.array(["C1", "C1", "C2", "C2"]),
-        np.array(["L1", "L2", "L1", "L2"]),
+        np.array(["C1", "C1", "C2", "C2", "C3"]), # Added C3 for more diverse test
+        np.array(["L1", "L2", "L1", "L2", "L1"]),
     ]
     index_gto = pd.MultiIndex.from_arrays(arrays_gto, names=("Config", "Level"))
     data_gto = pd.DataFrame({
-        'MethodX': [10, 20, 5, 25],
-        'MethodY': [15, 10, 12, 22],
-        'MethodZ': [12, 25, 8, 20]
+        'MethodX': [10, 20, 5, 25, np.nan],
+        'MethodY': [15, 10, np.nan, 22, 18],
+        'MethodZ': [np.nan, 25, 8, 20, 19]
     }, index=index_gto)
 
     latex_table_occ = get_table_occurence(data_gto, digits=1)
-    print("get_table_occurence output:")
+    print("get_table_occurence output (with NaNs):")
     print(latex_table_occ)
-    assert "\\textbf" in latex_table_occ # Check bolding applied
+    assert "\\textbf" in latex_table_occ
     assert "Config & Level & MethodX & MethodY & MethodZ \\\\" in latex_table_occ
-    assert "C1 & L1 & 10.0 & \\textbf{15.0} & 12.0 \\\\" in latex_table_occ or \
-           "C1 & L1 & 10.0 & \\textbf{15.0} & 12.0 \\\\" in latex_table_occ # Order might vary slightly if max is shared
-    assert "\\addlinespace" in latex_table_occ # Check spacing for config groups
+    # Check for placeholder for NaN, e.g. C3, MethodX should be "-"
+    assert "C3 & L1 & - & 18.0 & \\textbf{19.0} \\\\" in latex_table_occ or \
+           "C3 & L1 & - & 18.0 & \\textbf{19.0} \\\\" in latex_table_occ # Based on updated get_table_occurence
+    assert "\\addlinespace" in latex_table_occ
 
-    print("\nFinished LaTeX table generation tests.")
+    print("\nFinished all tests in functions.py.")
