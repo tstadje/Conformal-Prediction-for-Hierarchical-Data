@@ -1,0 +1,11 @@
+pandas
+numpy
+scipy
+statsmodels
+pygam
+matplotlib
+seaborn
+scikit-learn
+joblib
+tabulate
+argparse
